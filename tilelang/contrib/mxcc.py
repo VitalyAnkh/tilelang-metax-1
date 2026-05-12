@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import os
+import shlex
 import subprocess
 from tilelang.env import MACA_HOME, TILELANG_TEMPLATE_PATH
 import tvm_ffi
@@ -87,6 +88,10 @@ def compile_maca(code, target_format="mcbin", arch=None, options=None, path_targ
             cmd += options
         else:
             raise ValueError("options must be str or list of str")
+
+    extra_env_flags = os.environ.get("TILELANG_MXCC_FLAGS")
+    if extra_env_flags:
+        cmd += shlex.split(extra_env_flags)
 
     cmd += ["-D__FAST_HALF_CVT__"]
     cmd += ["-o", file_target]

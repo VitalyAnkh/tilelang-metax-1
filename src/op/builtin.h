@@ -465,6 +465,23 @@ TVM_DLL const Op &ptx_cp_async_barrier_noinc();
 TVM_DLL const Op &ptx_cp_async();
 
 /*!
+ * \brief MACA BSM direct global-to-shared load intrinsics.
+ *
+ * These ops expose the low-level C500 BSM load builtins used by handwritten
+ * MACA HGEMM kernels. They are intentionally target-specific and lower only in
+ * the MACA code generator.
+ */
+TVM_DLL const Op &maca_ldg_b128_bsm_predicator();
+TVM_DLL const Op &maca_ldg_b64_bsm_predicator();
+
+/*!
+ * \brief MACA BSM/global-memory wait and barrier intrinsics.
+ */
+TVM_DLL const Op &maca_arrive_gvmcnt();
+TVM_DLL const Op &maca_arrive_bsmcnt();
+TVM_DLL const Op &maca_barrier_inst();
+
+/*!
  * \brief Pack two b16 value into a b32 value
  *
  * int32 pack_b16(b16_value, b16_value)
