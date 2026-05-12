@@ -200,5 +200,43 @@ def test_async_copy_oob_lowers_to_predicated_cp_async_without_wait():
     assert "tl::cp_async_wait<0>" not in src, "Did not expect async_copy lowering to auto-emit wait"
 
 
+def test_maca_bsm_intrinsics_codegen():
+    """Smoke-test codegen for the MACA BSM builtin wrappers."""
+
+    @T.prim_func
+    def main(
+        A: T.Tensor((64,), T.uint8),
+        B: T.Tensor((64,), T.uint8),
+    ):
+        with T.Kernel(1, threads=32):
+            S = T.alloc_shared((64,), T.uint8)
+            T.maca_ldg_b128_bsm_predicator(
+                T.address_of(S[0]),
+                T.address_of(A[0]),
+                0,
+                True,
+                True,
+                False,
+                True,
+                1,
+                1,
+                "MACA_ICMP_EQ",
+            )
+            T.maca_arrive_gvmcnt(4)
+            T.maca_arrive_bsmcnt(2)
+            T.maca_barrier_inst()
+            B[0] = S[0]
+
+    kernel = tilelang.compile(main, out_idx=[1], target="maca")
+    src = kernel.get_kernel_source()
+    print("=== MACA BSM builtin codegen ===")
+    print(src)
+    assert "__builtin_mxc_ldg_b128_bsm_predicator" in src
+    assert "__builtin_mxc_arrive_gvmcnt(4)" in src
+    assert "__builtin_mxc_arrive_bsmcnt(2)" in src
+    assert "__builtin_mxc_barrier_inst();" in src
+    assert '"MACA_ICMP_EQ"' not in src
+
+
 if __name__ == "__main__":
     tilelang.testing.main()

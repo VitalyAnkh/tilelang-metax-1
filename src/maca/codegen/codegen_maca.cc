@@ -1839,7 +1839,47 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
     this->stream << ss.str();
     this->stream << ");\n";
   };
-  if (op->op.same_as(tl::maca_memcpy_async())) {
+  if (op->op.same_as(builtin::ptx_cp_async())) {
+    // args[0] = dst_access_ptr, args[1] = src_access_ptr, args[2] = bytes,
+    // args[3] = predicate (optional)
+    ICHECK(op->args.size() == 3 || op->args.size() == 4)
+        << "ptx_cp_async expects 3 or 4 arguments (dst_access_ptr, "
+           "src_access_ptr, bytes, [predicate])";
+
+    std::string dst = this->PrintExpr(op->args[0]);
+    std::string src = this->PrintExpr(op->args[1]);
+    std::string size = this->PrintExpr(op->args[2]);
+
+    this->PrintIndent();
+    if (op->args.size() == 3) {
+      this->stream << "tl::cp_async_gs<" << size << ">(" << dst << ", " << src
+                   << ");\n";
+    } else {
+      std::string condition = this->PrintExpr(op->args[3]);
+      this->stream << "tl::cp_async_gs_conditional<" << size << ">(" << dst
+                   << ", " << src << ", " << condition << ");\n";
+    }
+  } else if (op->op.same_as(tl::ptx_cp_async())) {
+    // TileLang version: args[0] = dst_access_ptr, args[1] = src_access_ptr,
+    // args[2] = bytes, args[3] = predicate (optional)
+    ICHECK(op->args.size() == 3 || op->args.size() == 4)
+        << "tl::ptx_cp_async expects 3 or 4 arguments (dst_access_ptr, "
+           "src_access_ptr, bytes, [predicate])";
+
+    std::string dst = this->PrintExpr(op->args[0]);
+    std::string src = this->PrintExpr(op->args[1]);
+    std::string size = this->PrintExpr(op->args[2]);
+
+    this->PrintIndent();
+    if (op->args.size() == 3) {
+      this->stream << "tl::cp_async_gs<" << size << ">(" << dst << ", " << src
+                   << ");\n";
+    } else {
+      std::string condition = this->PrintExpr(op->args[3]);
+      this->stream << "tl::cp_async_gs_conditional<" << size << ">(" << dst
+                   << ", " << src << ", " << condition << ");\n";
+    }
+  } else if (op->op.same_as(tl::maca_memcpy_async())) {
     // args[0] = dst_access_ptr, args[1] = src_access_ptr, args[2] = bytes,
     // args[3] = barrier
     ICHECK(op->args.size() == 4)
@@ -1861,6 +1901,44 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
         << "maca_barrier_arrive_and_wait expects 1 argument (bar)";
     std::string dummyRet = this->PrintExpr(op->args[0]);
     this->stream << "barrier_arrive_and_wait(" << dummyRet << ");\n";
+  } else if (op->op.same_as(tl::maca_ldg_b128_bsm_predicator()) ||
+             op->op.same_as(tl::maca_ldg_b64_bsm_predicator())) {
+    ICHECK_EQ(op->args.size(), 10U)
+        << "maca_ldg_b{64,128}_bsm_predicator expects 10 arguments "
+           "<dst, src, offset, cache_global, cache_shared, evict, wait, "
+           "cmp_lhs, cmp_rhs, cmp_type>";
+    std::string builtin_name = op->op.same_as(tl::maca_ldg_b128_bsm_predicator())
+                                   ? "__builtin_mxc_ldg_b128_bsm_predicator"
+                                   : "__builtin_mxc_ldg_b64_bsm_predicator";
+    this->PrintIndent();
+    this->stream << builtin_name << "(";
+    for (size_t i = 0; i < 9; ++i) {
+      if (i > 0) {
+        this->stream << ", ";
+      }
+      this->stream << this->PrintExpr(op->args[i]);
+    }
+    this->stream << ", " << Downcast<StringImm>(op->args[9])->value << ");\n";
+  } else if (op->op.same_as(tl::maca_arrive_gvmcnt())) {
+    ICHECK_EQ(op->args.size(), 1U);
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_arrive_gvmcnt(" << this->PrintExpr(op->args[0])
+                 << ");\n";
+  } else if (op->op.same_as(tl::maca_arrive_bsmcnt())) {
+    ICHECK_EQ(op->args.size(), 1U);
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_arrive_bsmcnt(" << this->PrintExpr(op->args[0])
+                 << ");\n";
+  } else if (op->op.same_as(tl::maca_barrier_inst())) {
+    ICHECK_EQ(op->args.size(), 0U);
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_barrier_inst();\n";
+  } else if (op->op.same_as(builtin::ptx_commit_group())) {
+    print_extern_call_stmt("tl::cp_async_commit");
+  } else if (op->op.same_as(builtin::ptx_wait_group())) {
+    int n = Downcast<IntImm>(op->args[0])->value;
+    std::string func_name = "tl::cp_async_wait<" + std::to_string(n) + ">";
+    print_extern_call_stmt(func_name, 1);
   } else if (op->op.same_as(builtin::create_barriers())) {
     this->PrintIndent();
     int barrier_count = Downcast<IntImm>(op->args[0])->value;
