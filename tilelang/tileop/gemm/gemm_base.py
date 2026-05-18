@@ -166,6 +166,10 @@ class GemmBase:
         return getattr(self.gemm_node, "policy", None)
 
     @property
+    def annotations(self):
+        return getattr(self.gemm_node, "annotations", {})
+
+    @property
     def mbarptr(self) -> PrimExpr:
         return getattr(self.gemm_node, "mbarPtr", tvm.tir.const(0, T.uint32))
 

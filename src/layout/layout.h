@@ -269,6 +269,7 @@ Layout makeGemmABLayoutCDNA(int stride, int continuous, int element_size,
                             int kPack);
 Layout makeGemmABLayoutMACA(int mat_stride, int mat_continuous, int continuity,
                             int element_size, int kfactor);
+Layout makeMacaGemmABLayout(const Buffer &buffer, int kfactor);
 
 Fragment makeGemmVoltaFragmentC(const int block_m, const int block_n,
                                 const int warp_m, const int warp_n,

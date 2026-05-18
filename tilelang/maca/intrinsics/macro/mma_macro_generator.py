@@ -498,7 +498,7 @@ class TensorCoreIntrinEmitter:
             transform_func_sr_a = shared_16x32_to_local_64x8_layout_A
             transform_func_sr_b = shared_16x32_to_local_64x8_layout_A
         else:
-            raise ValueError(f"k_dim must be 0 currently but got {k_dim}")
+            raise ValueError(f"k_dim must be one of {4, 16, 32} but got {k_dim}")
 
         is_sr_conditions = [False]
         is_sr_conditions.append(matrix_is_a and not transposed)
@@ -779,7 +779,6 @@ class TensorCorePreshuffleIntrinEmitter(TensorCoreIntrinEmitter):
                         )
                         A_local_buf[i * k_pack * local_size_a + local_id] = A_shared_buf[l, r, row, col]
             else:
-                print(self.a_preshuffle)
                 for i in T.serial(warp_rows):
                     for local_id in T.vectorized(k_pack * local_size_a):
                         row, col = T.meta_var(reverse_index_map(tx, local_id))

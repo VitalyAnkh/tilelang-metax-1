@@ -954,6 +954,18 @@ TVM_DLL const Op &tvm_rdna_wmma_store();
 TVM_DLL const Op &tl_gemm();
 
 /*!
+ * \brief tilelang intrinsic for MACA GEMM variants that need a wider generated
+ *  source ABI than tl_gemm.
+ *
+ *  The first use is the HGEMM WSM-aware compiler-path probe. It preserves the
+ *  template-call style of tl_gemm while adding pointer arguments for generated
+ *  shared/WSM storage plus the original global A/B source operands:
+ *    T.call_intrin("handle", "tl.tl_gemm_wsm", op_instance_str,
+ *                  A_ptr, B_ptr, C_ptr, WSM_ptr, A_source_ptr, B_source_ptr)
+ */
+TVM_DLL const Op &tl_gemm_wsm();
+
+/*!
  * \brief tilelang intrinsic for sparse matrix multiplication (GEMM with
  * sparsity).
  *

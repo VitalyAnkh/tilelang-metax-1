@@ -156,6 +156,7 @@ def gemm(
     clear_accum: bool = False,
     k_pack: int = 1,
     mbar: BarrierType | None = None,
+    annotations: dict | None = None,
 ) -> tir.PrimExpr:
     """TileLang GEMM operator.
 
@@ -195,6 +196,7 @@ def gemm(
         k_pack,
         0,
         mbar,
+        annotations=annotations,
     )
 
 

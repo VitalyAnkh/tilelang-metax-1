@@ -203,5 +203,46 @@ def test_maca_bsm_intrinsics_codegen():
     assert '"MACA_ICMP_EQ"' not in src
 
 
+def test_maca_bsm_byte_view_feeds_gemm_codegen():
+    """BSM byte staging can alias a half view consumed by MACA GEMM lowering."""
+
+    @T.prim_func
+    def main(
+        A: T.Tensor((128, 64), T.float16),
+        B: T.Tensor((128, 64), T.float16),
+        C: T.Tensor((128, 128), T.float16),
+    ):
+        with T.Kernel(1, 1, threads=256):
+            A_shared = T.alloc_shared((128, 64), T.float16)
+            B_storage = T.alloc_shared((128, 128), T.uint8)
+            B_shared = T.view(B_storage, (128, 64), dtype=T.float16)
+            C_local = T.alloc_fragment((128, 128), T.float32)
+            T.copy(A, A_shared)
+            T.clear(C_local)
+            T.maca_ldg_b128_bsm_predicator(
+                T.address_of(B_storage[0, 0]),
+                T.address_of(B[0, 0]),
+                0,
+                True,
+                True,
+                False,
+                True,
+                1,
+                1,
+                "MACA_ICMP_EQ",
+            )
+            T.maca_arrive_gvmcnt(0)
+            T.maca_barrier_inst()
+            T.gemm(A_shared, B_shared, C_local, False, True)
+            T.copy(C_local, C)
+
+    kernel = tilelang.compile(main, out_idx=[2], target="maca")
+    src = kernel.get_kernel_source()
+    assert "__builtin_mxc_ldg_b128_bsm_predicator" in src
+    assert "__builtin_mxc_arrive_gvmcnt(0)" in src
+    assert "__builtin_mxc_barrier_inst();" in src
+    assert "__builtin_mxc_mma_16x16x16f16" in src
+
+
 if __name__ == "__main__":
     tilelang.testing.main()

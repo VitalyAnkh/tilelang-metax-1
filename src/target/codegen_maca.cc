@@ -12,6 +12,9 @@
 #include <tvm/tir/op.h>
 
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,6 +29,83 @@ namespace tvm {
 namespace codegen {
 using namespace tvm::tl::codegen;
 using namespace ffi;
+
+namespace {
+
+bool IsValidCPAsyncTransferBytes(int64_t bytes) {
+  return bytes == 4 || bytes == 8 || bytes == 16;
+}
+
+bool IsEnabledEnv(const char *name) {
+  const char *value = std::getenv(name);
+  if (value == nullptr) {
+    return false;
+  }
+  std::string text(value);
+  return text == "1" || text == "true" || text == "TRUE" || text == "on" ||
+         text == "ON" || text == "yes" || text == "YES";
+}
+
+std::optional<DataType> GetAccessPtrElementType(const PrimExpr &expr) {
+  const auto *ptr_call = expr.as<CallNode>();
+  if (ptr_call == nullptr) {
+    return std::nullopt;
+  }
+  if (ptr_call->op.same_as(builtin::address_of())) {
+    const auto *buffer_load = ptr_call->args[0].as<BufferLoadNode>();
+    ICHECK(buffer_load) << "address_of arg must be BufferLoad";
+    return buffer_load->buffer->dtype;
+  }
+  if (ptr_call->op.same_as(builtin::tvm_access_ptr())) {
+    ICHECK(!ptr_call->args.empty());
+    return ptr_call->args[0].dtype();
+  }
+  if (ptr_call->op.same_as(tl::access_ptr())) {
+    ICHECK_EQ(ptr_call->args.size(), 3U)
+        << "tl.access_ptr expects 3 args: (BufferLoad, extent, rw_mask)";
+    const auto *buffer_load = ptr_call->args[0].as<BufferLoadNode>();
+    ICHECK(buffer_load) << "tl.access_ptr arg0 must be BufferLoad";
+    return buffer_load->buffer->dtype;
+  }
+  return std::nullopt;
+}
+
+int GetTileLangCPAsyncTransferBytes(const CallNode *op) {
+  ICHECK(op->args.size() == 3 || op->args.size() == 4)
+      << "tl::ptx_cp_async expects 3 or 4 arguments (dst_access_ptr, "
+         "src_access_ptr, num_elems, [predicate])";
+  const auto *num_elems_imm = op->args[2].as<IntImmNode>();
+  ICHECK(num_elems_imm) << "tl::ptx_cp_async num_elems must be IntImm, but got "
+                        << op->args[2];
+  int64_t num_elems = num_elems_imm->value;
+  ICHECK_GT(num_elems, 0);
+
+  auto dst_elem_type = GetAccessPtrElementType(op->args[0]);
+  auto src_elem_type = GetAccessPtrElementType(op->args[1]);
+  ICHECK(dst_elem_type.has_value() && src_elem_type.has_value())
+      << "tl::ptx_cp_async expects address_of, tl.access_ptr, or "
+         "tvm_access_ptr operands";
+
+  int64_t dst_total_bits =
+      num_elems * dst_elem_type.value().bits() * dst_elem_type.value().lanes();
+  int64_t src_total_bits =
+      num_elems * src_elem_type.value().bits() * src_elem_type.value().lanes();
+  ICHECK_EQ(dst_total_bits, src_total_bits)
+      << "tl::ptx_cp_async requires src/dst transfer widths to match, but got "
+      << dst_total_bits << " vs " << src_total_bits << " bits";
+  ICHECK_EQ(dst_total_bits % 8, 0)
+      << "tl::ptx_cp_async requires byte-aligned transfers, but got "
+      << dst_total_bits << " bits";
+
+  int64_t total_bytes = dst_total_bits / 8;
+  ICHECK(IsValidCPAsyncTransferBytes(total_bytes))
+      << "tl::ptx_cp_async requires a final PTX byte width in {4, 8, 16}, but "
+         "got "
+      << total_bytes;
+  return static_cast<int>(total_bytes);
+}
+
+} // namespace
 
 struct MACAMath {
   std::string operator()(DataType t, std::string name) const {
@@ -313,6 +393,7 @@ std::string CodeGenTileLangMACA::Finish() {
   }
 
   decl_stream << "#include <tl_templates/maca/gemm.h>\n";
+  decl_stream << "#include <tl_templates/maca/gemm_wsm.h>\n";
   if (enable_sparse_gemm_) {
     decl_stream << "#include <tl_templates/maca/gemm_sp.h>\n";
   }
@@ -1505,6 +1586,21 @@ void CodeGenTileLangMACA::PrintVecStore(const BufferNode *buffer, DataType t,
     scope = GetPtrStorageScope(buffer->data);
   }
 
+  if (IsEnabledEnv("TILELANG_MACA_REWRITE_PACKED_B_COPY_TO_BSM") &&
+      scope == "shared.dyn" && t.is_float16() && t.lanes() == 4 &&
+      value.find("*(uint2*)(b +") != std::string::npos) {
+    auto buffer_ref = this->GetBufferRef(t, buffer, base);
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_ldg_b64_bsm_predicator((unsigned char*)(&("
+                 << buffer_ref << ")), (unsigned char*)(&(" << value
+                 << ")), 0, true, true, false, true, 1, 1, MACA_ICMP_EQ);\n";
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_arrive_gvmcnt(0);\n";
+    this->PrintIndent();
+    this->stream << "__builtin_mxc_barrier_inst();\n";
+    return;
+  }
+
   if (scope != "global" || t.bits() * t.lanes() <= 128) {
     this->CodeGenC::PrintVecStore(buffer, t, base, value);
     return;
@@ -1589,14 +1685,11 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
     }
   } else if (op->op.same_as(tl::ptx_cp_async())) {
     // TileLang version: args[0] = dst_access_ptr, args[1] = src_access_ptr,
-    // args[2] = bytes, args[3] = predicate (optional)
-    ICHECK(op->args.size() == 3 || op->args.size() == 4)
-        << "tl::ptx_cp_async expects 3 or 4 arguments (dst_access_ptr, "
-           "src_access_ptr, bytes, [predicate])";
-
+    // args[2] = num_elems, args[3] = predicate (optional)
+    int total_bytes = GetTileLangCPAsyncTransferBytes(op);
     std::string dst = this->PrintExpr(op->args[0]);
     std::string src = this->PrintExpr(op->args[1]);
-    std::string size = this->PrintExpr(op->args[2]);
+    std::string size = std::to_string(total_bytes);
 
     this->PrintIndent();
     if (op->args.size() == 3) {
@@ -2345,6 +2438,21 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
     os << ")";
   } else if (op->op.same_as(builtin::thread_return())) {
     os << "return";
+  } else if (op->op.same_as(tl::tl_gemm())) {
+    ICHECK(op->args.size() == 4) << "tl_gemm expects 4 arguments <op_instance, "
+                                    "A_ptr, B_ptr, C_ptr>, but got "
+                                 << op->args.size();
+    auto op_instance = Downcast<StringImm>(op->args[0]);
+    this->PrintCallExtern(GetType(tvm::ffi::GetRef<PrimExpr>(op)),
+                          op_instance->value, op->args, true, os);
+  } else if (op->op.same_as(tl::tl_gemm_wsm())) {
+    ICHECK(op->args.size() == 7)
+        << "tl_gemm_wsm expects 7 arguments <op_instance, A_ptr, B_ptr, "
+           "C_ptr, WSM_ptr, A_source_ptr, B_source_ptr>, but got "
+        << op->args.size();
+    auto op_instance = Downcast<StringImm>(op->args[0]);
+    this->PrintCallExtern(GetType(tvm::ffi::GetRef<PrimExpr>(op)),
+                          op_instance->value, op->args, true, os);
   } else if (op->op.same_as(tl::tl_gemm_sp())) {
     ICHECK(op->args.size() == 5)
         << "tl_gemm_sp expects 5 arguments <op_instance, A_ptr, B_ptr, C_ptr, "

@@ -1165,6 +1165,16 @@ TVM_FFI_STATIC_INIT_BLOCK() {
            })
       .def("tl.make_linear_layout",
            [](Array<PrimExpr> shape) { return makeLinearLayout(shape); })
+      .def("tl.make_maca_gemm_ab_layout",
+           [](const Buffer &buffer, int kfactor) {
+             return makeMacaGemmABLayout(buffer, kfactor);
+           })
+      .def("tl.make_maca_gemm_fragment_c",
+           [](int block_m, int block_n, int warp_m, int warp_n,
+              int element_size) {
+             return makeGemmFragmentCMACA(block_m, block_n, warp_m, warp_n,
+                                          element_size);
+           })
       .def("tl.make_gemm_fragment_8x8", []() { return makeGemmFragment8x8(); })
       .def("tl.make_gemm_fragment_8x8_transposed",
            []() { return makeGemmFragment8x8Transposed(); })
