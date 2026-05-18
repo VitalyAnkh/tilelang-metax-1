@@ -1041,6 +1041,39 @@ TVM_DLL const Op &tvm_rdna_wmma();
 TVM_DLL const Op &tvm_rdna_wmma_store();
 
 /*!
+ * \brief tilelang intrinsic for general matrix multiplication (GEMM).
+ *
+ *  This op wraps a templated `tl::gemm_*<...>` call into the generated device
+ *  code. Python-side lowering backends that want to delegate to the C++
+ *  template implementations in `src/tl_templates/<target>/gemm*.h` can emit a
+ *  call to this builtin directly via
+ *    T.call_intrin("handle", "tl.tl_gemm", op_instance_str, A_ptr, B_ptr,
+ * C_ptr) where `op_instance_str` is the fully-instantiated `tl::gemm_ss<M, N,
+ * K, ...>` template string.
+ */
+TVM_DLL const Op &tl_gemm();
+
+/*!
+ * \brief tilelang intrinsic for MACA GEMM variants that need a wider generated
+ *  source ABI than tl_gemm.
+ *
+ *  The first use is the HGEMM WSM-aware compiler-path probe. It preserves the
+ *  template-call style of tl_gemm while adding pointer arguments for generated
+ *  shared/WSM storage plus the original global A/B source operands:
+ *    T.call_intrin("handle", "tl.tl_gemm_wsm", op_instance_str,
+ *                  A_ptr, B_ptr, C_ptr, WSM_ptr, A_source_ptr, B_source_ptr)
+ */
+TVM_DLL const Op &tl_gemm_wsm();
+
+/*!
+ * \brief tilelang intrinsic for sparse matrix multiplication (GEMM with
+ * sparsity).
+ *
+ *  This op is used to represent a sparse GEMM operation in tilelang.
+ */
+TVM_DLL const Op &tl_gemm_sp();
+
+/*!
  * \brief tilelang intrinsic for shuffle elect.
  *
  *  This op is used to represent a shuffle elect operation in tilelang.

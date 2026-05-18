@@ -1907,9 +1907,10 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
         << "maca_ldg_b{64,128}_bsm_predicator expects 10 arguments "
            "<dst, src, offset, cache_global, cache_shared, evict, wait, "
            "cmp_lhs, cmp_rhs, cmp_type>";
-    std::string builtin_name = op->op.same_as(tl::maca_ldg_b128_bsm_predicator())
-                                   ? "__builtin_mxc_ldg_b128_bsm_predicator"
-                                   : "__builtin_mxc_ldg_b64_bsm_predicator";
+    std::string builtin_name =
+        op->op.same_as(tl::maca_ldg_b128_bsm_predicator())
+            ? "__builtin_mxc_ldg_b128_bsm_predicator"
+            : "__builtin_mxc_ldg_b64_bsm_predicator";
     this->PrintIndent();
     this->stream << builtin_name << "(";
     for (size_t i = 0; i < 9; ++i) {
@@ -1922,13 +1923,13 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
   } else if (op->op.same_as(tl::maca_arrive_gvmcnt())) {
     ICHECK_EQ(op->args.size(), 1U);
     this->PrintIndent();
-    this->stream << "__builtin_mxc_arrive_gvmcnt(" << this->PrintExpr(op->args[0])
-                 << ");\n";
+    this->stream << "__builtin_mxc_arrive_gvmcnt("
+                 << this->PrintExpr(op->args[0]) << ");\n";
   } else if (op->op.same_as(tl::maca_arrive_bsmcnt())) {
     ICHECK_EQ(op->args.size(), 1U);
     this->PrintIndent();
-    this->stream << "__builtin_mxc_arrive_bsmcnt(" << this->PrintExpr(op->args[0])
-                 << ");\n";
+    this->stream << "__builtin_mxc_arrive_bsmcnt("
+                 << this->PrintExpr(op->args[0]) << ");\n";
   } else if (op->op.same_as(tl::maca_barrier_inst())) {
     ICHECK_EQ(op->args.size(), 0U);
     this->PrintIndent();
@@ -2413,6 +2414,30 @@ void CodeGenTileLangMACA::VisitExpr_(const CallNode *op, std::ostream &os) {
     os << ")";
   } else if (op->op.same_as(builtin::thread_return())) {
     os << "return";
+  } else if (op->op.same_as(tl::tl_gemm())) {
+    ICHECK(op->args.size() == 4) << "tl_gemm expects 4 arguments <op_instance, "
+                                    "A_ptr, B_ptr, C_ptr>, but got "
+                                 << op->args.size();
+    auto op_instance = Downcast<StringImm>(op->args[0]);
+    this->PrintCallExtern(GetType(tvm::ffi::GetRef<PrimExpr>(op)),
+                          op_instance->value, op->args, true, os);
+  } else if (op->op.same_as(tl::tl_gemm_wsm())) {
+    ICHECK(op->args.size() == 7)
+        << "tl_gemm_wsm expects 7 arguments <op_instance, A_ptr, B_ptr, "
+           "C_ptr, WSM_ptr, A_source_ptr, B_source_ptr>, but got "
+        << op->args.size();
+    auto op_instance = Downcast<StringImm>(op->args[0]);
+    this->PrintCallExtern(GetType(tvm::ffi::GetRef<PrimExpr>(op)),
+                          op_instance->value, op->args, true, os);
+  } else if (op->op.same_as(tl::tl_gemm_sp())) {
+    ICHECK(op->args.size() == 5)
+        << "tl_gemm_sp expects 5 arguments <op_instance, A_ptr, B_ptr, C_ptr, "
+           "E_ptr>, but got "
+        << op->args.size();
+    auto op_instance = Downcast<StringImm>(op->args[0]);
+    enable_sparse_gemm_ = true;
+    this->PrintCallExtern(GetType(tvm::ffi::GetRef<PrimExpr>(op)),
+                          op_instance->value, op->args, true, os);
   } else if (op->op.same_as(tl::any_sync())) {
     ICHECK_EQ(op->args.size(), 2U) << "tl.any_sync expects <mask, predicate>.";
     os << "__any_sync(" << PrintExpr(op->args[0]) << ", "

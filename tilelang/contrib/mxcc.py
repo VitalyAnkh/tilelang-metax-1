@@ -37,6 +37,12 @@ def compile_maca(code, target_format="mcbin", arch=None, options=None, path_targ
     path_target : str, optional
         Output file.
 
+    Environment Variables
+    ---------------------
+    TILELANG_MXCC_FLAGS : str, optional
+        Extra MXCC command-line flags parsed with shell-like syntax. These
+        flags are appended after explicit options and before output specs.
+
     Return
     ------
     cubin : bytearray
@@ -91,7 +97,10 @@ def compile_maca(code, target_format="mcbin", arch=None, options=None, path_targ
 
     extra_env_flags = os.environ.get("TILELANG_MXCC_FLAGS")
     if extra_env_flags:
-        cmd += shlex.split(extra_env_flags)
+        try:
+            cmd += shlex.split(extra_env_flags)
+        except ValueError as exc:
+            raise ValueError(f"malformed TILELANG_MXCC_FLAGS={extra_env_flags!r}: {exc}") from exc
 
     cmd += ["-D__FAST_HALF_CVT__"]
     cmd += ["-o", file_target]
