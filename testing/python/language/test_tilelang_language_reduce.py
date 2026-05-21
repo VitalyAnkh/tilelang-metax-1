@@ -81,7 +81,7 @@ REDUCE_CASES = [
     ("abssum", T.int64, 128, 128, "fragment", "fragment", 64, 1),
     ("absmax", T.float32, 128, 128, "fragment", "fragment", 32, 1),
     ("absmax", T.int64, 128, 128, "fragment", "fragment", 64, 1),
-    # batch > 1: verify run_batch codegen and correctness together
+    # batch > 1: verify batched reduce codegen and correctness together
     ("sum", T.float32, 128, 64, "shared", "fragment", 256, 2),
     ("sum", T.float32, 128, 64, "shared", "fragment", 256, 4),
     ("sum", T.float16, 64, 128, "fragment", "fragment", 256, 4),
@@ -130,8 +130,9 @@ def test_reduce(op, dtype, M, N, src_scope, dst_scope, threads, batch):
 
     if batch > 1:
         src = jit_kernel.get_kernel_source()
-        m = re.search(r",\s*(\d+)\s*,\s*\d+\s*>::run_batch\(", src)
-        assert m is not None, f"Expected run_batch in generated source.\n{src}"
+        m = re.search(r",\s*(\d+)\s*,\s*\d+\s*>::run_batch(?:_offset)?\(", src)
+        assert m is not None, f"Expected batched reduce in generated source.\n{src}"
+        assert int(m.group(1)) > 1, f"Expected batch_size > 1, got {m.group(1)}.\n{src}"
 
     seed = _case_seed("reduce", op, dtype, M, N, src_scope, dst_scope, threads, batch)
     A = _make_input(M, N, dtype, seed)
