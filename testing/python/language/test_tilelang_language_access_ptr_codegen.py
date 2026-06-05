@@ -205,6 +205,49 @@ def test_async_copy_oob_lowers_to_predicated_cp_async_without_wait():
 
 
 @requires_maca
+def test_maca_global_atomic_add_preserves_logical_layout_indices_codegen():
+    def make_dq_layout(dQ):
+        return T.Layout(
+            dQ.shape,
+            lambda b, h, l, d: [
+                b,
+                h,
+                l // 8,
+                d // 8,
+                (d % 2),
+                4 * (l % 8) + (d % 8) // 2,
+            ],
+        )
+
+    @T.prim_func
+    def main(
+        A: T.Tensor((64, 32), T.float16),
+        B: T.Tensor((64, 128), T.float16),
+        dQ: T.Tensor((1, 32, 512, 128), T.float32),
+    ):
+        with T.Kernel(32, 1, 1, threads=256) as (bx, by, bz):
+            A_shared = T.alloc_shared((64, 32), T.float16)
+            B_shared = T.alloc_shared((64, 128), T.float16)
+            dq = T.alloc_fragment((32, 128), T.float32)
+            T.annotate_layout({dQ: make_dq_layout(dQ)})
+            T.copy(A, A_shared)
+            T.copy(B, B_shared)
+            T.clear(dq)
+            for k in range(16):
+                T.gemm(A_shared, B_shared, dq, transpose_A=True)
+                T.atomic_add(dQ[bz, bx, k * 32 : (k + 1) * 32, :], dq)
+
+    kernel = tilelang.compile(main, out_idx=None, target="maca")
+    src = kernel.get_kernel_source()
+
+    assert "AtomicAdd" in src
+    assert "(k >> 4) + ((int)blockIdx.x)" not in src
+    assert "((k & 15) * 4096)" not in src
+    assert "((int)blockIdx.x) * 65536" in src
+    assert "(k * 4096)" in src
+
+
+@requires_maca
 def test_maca_bsm_intrinsics_codegen():
     """Smoke-test codegen for the MACA BSM builtin wrappers."""
 

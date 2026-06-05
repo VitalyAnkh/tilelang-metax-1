@@ -1037,6 +1037,14 @@ private:
 
     if (op->op.same_as(builtin::address_of()) ||
         op->op.same_as(tl::access_ptr())) {
+      Optional<PrimExpr> resolved = ResolveBufferLoad(op->args[0]);
+      if (resolved.defined()) {
+        if (const auto *load = resolved.value().as<BufferLoadNode>()) {
+          if (IsGlobalBuffer(load->buffer)) {
+            return Downcast<Call>(IRMutatorWithAnalyzer::VisitExpr_(op));
+          }
+        }
+      }
       auto access_ptr = tvm::ffi::GetRef<PrimExpr>(op);
       auto new_access_ptr =
           HandleAccessPtrAndOffset(access_ptr, std::nullopt, op->dtype);
