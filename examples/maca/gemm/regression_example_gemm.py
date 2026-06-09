@@ -6,6 +6,22 @@ import example_gemm_autotune
 import example_gemm_intrinsics
 
 
+_BENCH_GEMM_CONFIG = {
+    "block_M": 128,
+    "block_N": 128,
+    "block_K": 128,
+    "threads": 256,
+    "num_stages": 0,
+}
+
+_BENCH_GEMM_CASES = (
+    {"name": "bench_gemm_m1664_n1024_k262144", "M": 1664, "N": 1024, "K": 262144},
+    {"name": "bench_gemm_m4096_n8192_k8192", "M": 4096, "N": 8192, "K": 8192},
+    {"name": "bench_gemm_m4096_n8192_k28672", "M": 4096, "N": 8192, "K": 28672},
+    {"name": "bench_gemm_m8192_n1024_k8192", "M": 8192, "N": 1024, "K": 8192},
+)
+
+
 @tilelang.jit(out_idx=[-1])
 def _bench_gemm_matmul(
     M,
@@ -48,19 +64,31 @@ def _run_bench_gemm(M, N, K, block_M, block_N, block_K, threads, num_stages):
     return profiler.do_bench(backend="cupti")
 
 
-def regression_bench_gemm_m1664_n1024_k262144():
+def _process_bench_gemm_case(case):
     tilelang.testing.process_func(
         _run_bench_gemm,
-        "bench_gemm_m1664_n1024_k262144",
-        M=1664,
-        N=1024,
-        K=262144,
-        block_M=128,
-        block_N=128,
-        block_K=128,
-        threads=256,
-        num_stages=0,
+        case["name"],
+        M=case["M"],
+        N=case["N"],
+        K=case["K"],
+        **_BENCH_GEMM_CONFIG,
     )
+
+
+def regression_bench_gemm_m1664_n1024_k262144():
+    _process_bench_gemm_case(_BENCH_GEMM_CASES[0])
+
+
+def regression_bench_gemm_m4096_n8192_k8192():
+    _process_bench_gemm_case(_BENCH_GEMM_CASES[1])
+
+
+def regression_bench_gemm_m4096_n8192_k28672():
+    _process_bench_gemm_case(_BENCH_GEMM_CASES[2])
+
+
+def regression_bench_gemm_m8192_n1024_k8192():
+    _process_bench_gemm_case(_BENCH_GEMM_CASES[3])
 
 
 def regression_example_gemm_autotune():
