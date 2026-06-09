@@ -73,20 +73,27 @@ def _process_bench_gemm_case(case):
     )
 
 
+def _get_bench_gemm_case(name):
+    for case in _BENCH_GEMM_CASES:
+        if case["name"] == name:
+            return case
+    raise KeyError(f"unknown GEMM benchmark case: {name}")
+
+
 def regression_bench_gemm_m1664_n1024_k262144():
-    _process_bench_gemm_case(_BENCH_GEMM_CASES[0])
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m1664_n1024_k262144"))
 
 
 def regression_bench_gemm_m4096_n8192_k8192():
-    _process_bench_gemm_case(_BENCH_GEMM_CASES[1])
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m4096_n8192_k8192"))
 
 
 def regression_bench_gemm_m4096_n8192_k28672():
-    _process_bench_gemm_case(_BENCH_GEMM_CASES[2])
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m4096_n8192_k28672"))
 
 
 def regression_bench_gemm_m8192_n1024_k8192():
-    _process_bench_gemm_case(_BENCH_GEMM_CASES[3])
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m8192_n1024_k8192"))
 
 
 def regression_example_gemm_intrinsics():

@@ -31,6 +31,13 @@ def _literal_assignment(module, name):
     raise AssertionError(f"missing literal assignment for {name}")
 
 
+def _function_def(module, name):
+    for statement in module.body:
+        if isinstance(statement, ast.FunctionDef) and statement.name == name:
+            return statement
+    raise AssertionError(f"missing function definition for {name}")
+
+
 def test_regression_bench_gemm_cases_cover_optimization_shapes():
     module = ast.parse(GEMM_REGRESSION.read_text())
 
@@ -52,3 +59,31 @@ def test_regression_bench_gemm_cases_have_discoverable_wrappers():
     expected_wrappers = {f"regression_{case['name']}" for case in cases}
 
     assert expected_wrappers <= function_names
+
+
+def test_regression_bench_gemm_wrappers_bind_cases_by_name():
+    module = ast.parse(GEMM_REGRESSION.read_text())
+
+    for case_name, *_ in EXPECTED_BENCH_GEMM_CASES:
+        wrapper = _function_def(module, f"regression_{case_name}")
+        process_calls = [
+            node
+            for node in ast.walk(wrapper)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_process_bench_gemm_case"
+        ]
+        indexed_case_lookups = [
+            node
+            for node in ast.walk(wrapper)
+            if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id == "_BENCH_GEMM_CASES"
+        ]
+
+        assert len(process_calls) == 1
+        assert indexed_case_lookups == []
+
+        process_arg = process_calls[0].args[0]
+        assert isinstance(process_arg, ast.Call)
+        assert isinstance(process_arg.func, ast.Name)
+        assert process_arg.func.id == "_get_bench_gemm_case"
+        assert len(process_arg.args) == 1
+        assert isinstance(process_arg.args[0], ast.Constant)
+        assert process_arg.args[0].value == case_name
