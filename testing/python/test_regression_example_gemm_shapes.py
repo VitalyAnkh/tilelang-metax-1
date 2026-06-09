@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-GEMM_REGRESSION = REPO_ROOT / "examples/maca/gemm/regression_example_gemm.py"
+GEMM_REGRESSION = REPO_ROOT / "examples/gemm/regression_example_gemm.py"
 
 EXPECTED_BENCH_GEMM_CONFIG = {
     "block_M": 128,
@@ -31,7 +31,7 @@ def _literal_assignment(module, name):
     raise AssertionError(f"missing literal assignment for {name}")
 
 
-def test_maca_regression_bench_gemm_cases_cover_optimization_shapes():
+def test_regression_bench_gemm_cases_cover_optimization_shapes():
     module = ast.parse(GEMM_REGRESSION.read_text())
 
     config = _literal_assignment(module, "_BENCH_GEMM_CONFIG")
@@ -44,7 +44,7 @@ def test_maca_regression_bench_gemm_cases_cover_optimization_shapes():
     assert actual_cases == EXPECTED_BENCH_GEMM_CASES
 
 
-def test_maca_regression_bench_gemm_cases_have_discoverable_wrappers():
+def test_regression_bench_gemm_cases_have_discoverable_wrappers():
     module = ast.parse(GEMM_REGRESSION.read_text())
     function_names = {node.name for node in module.body if isinstance(node, ast.FunctionDef)}
     cases = _literal_assignment(module, "_BENCH_GEMM_CASES")
