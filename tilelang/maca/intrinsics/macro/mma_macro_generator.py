@@ -9,7 +9,7 @@ from tvm.runtime import convert
 from ..layout.utils import mma_store_index_map
 from typing import Literal
 from collections.abc import Callable
-from tilelang.utils.target import determine_target
+from tilelang.backend.target import determine_target
 
 from tilelang.utils import is_fragment
 from tilelang.utils.language import get_buffer_region_from_load

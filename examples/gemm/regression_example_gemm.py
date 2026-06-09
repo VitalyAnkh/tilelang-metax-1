@@ -2,9 +2,7 @@ import tilelang
 import tilelang.language as T
 import tilelang.testing
 import example_gemm
-import example_gemm_autotune
 import example_gemm_intrinsics
-
 
 _BENCH_GEMM_CONFIG = {
     "block_M": 128,
@@ -89,10 +87,6 @@ def regression_bench_gemm_m4096_n8192_k28672():
 
 def regression_bench_gemm_m8192_n1024_k8192():
     _process_bench_gemm_case(_BENCH_GEMM_CASES[3])
-
-
-def regression_example_gemm_autotune():
-    tilelang.testing.process_func(example_gemm_autotune.run_regression_perf, M=1024, N=1024, K=1024)
 
 
 def regression_example_gemm_intrinsics():

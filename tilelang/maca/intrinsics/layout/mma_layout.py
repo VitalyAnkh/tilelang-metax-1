@@ -4,6 +4,58 @@ from tvm.tirx import const
 import tilelang.language as T
 
 
+def mma_load_a_32x4_to_shared_16x8_layout(thread_id, local_id):
+    row = 8 * (local_id % 2) + (thread_id // 4)
+    col = 4 * (local_id // 2) + (thread_id % 4)
+    return row, col
+
+
+def mma_load_a_32x16_to_shared_16x32_layout(thread_id, local_id):
+    row = 8 * (local_id % 8 // 4) + (thread_id // 4)
+    col = 16 * (local_id // 8) + (thread_id % 4) * 4 + (local_id % 4)
+    return row, col
+
+
+def mma_load_a_32x8_to_shared_16x16_layout(thread_id, local_id):
+    """
+    groupID           = %laneid >> 2
+    threadID_in_group = %laneid % 4
+
+    row =      groupID            for ai where  0 <= i < 2 || 4 <= i < 6
+            groupID + 8         Otherwise
+
+    col =  (threadID_in_group * 2) + (i & 0x1)          for ai where i <  4
+    (threadID_in_group * 2) + (i & 0x1) + 8      for ai where i >= 4
+    """
+    row = (thread_id // 4) + 8 * (local_id % 4 // 2)
+    col = (thread_id % 4) * 2 + (local_id % 2) + 8 * (local_id // 4)
+    return row, col
+
+
+def shared_16x8_to_mma_a_32x4_layout(i, j):
+    thread_id = 4 * (i % 8) + (j % 4)
+    return thread_id, 2 * (j // 4) + (i // 8)
+
+
+shared_16x8_to_mma_32x4_layout_sr_a = shared_16x8_to_mma_a_32x4_layout
+
+
+def shared_16x16_to_mma_a_32x8_layout(i, j):
+    thread_id = 4 * (i % 8) + (j % 8) // 2
+    return thread_id, 4 * (j // 8) + (i // 8) * 2 + (j % 2)
+
+
+shared_16x16_to_mma_32x8_layout_sr_a = shared_16x16_to_mma_a_32x8_layout
+
+
+def shared_16x32_to_mma_a_32x16_layout(i, j):
+    thread_id = 4 * (i % 8) + (j % 16) // 4
+    return thread_id, 8 * (j // 16) + (i // 8) * 4 + j % 4
+
+
+shared_16x32_to_mma_32x16_layout_sr_a = shared_16x32_to_mma_a_32x16_layout
+
+
 def shared_16x4_to_local_64x1_layout_A(i, j):
     thread_id = j * 16 + i
     return thread_id, const(0)

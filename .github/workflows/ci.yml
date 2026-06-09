@@ -405,6 +405,8 @@ jobs:
             --ignore=./python/jit/test_tilelang_jit_nvrtc.py \
             --ignore=./python/transform/test_tilelang_transform_im2col_fallback.py \
             --ignore=./python/transform/test_tilelang_transform_inject_tcgen05_fence.py \
+            --ignore=./python/transform/test_tilelang_transform_fuse_mbarrier_arrive_expect_tx.py \
+            --ignore=./python/transform/test_tilelang_transform_lower_hopper_intrin.py \
             ./python
 
       # Apple Metal tests

@@ -22,7 +22,7 @@ import torch
 
 SM100_TARGET = {"kind": "cuda", "arch": "sm_100"}
 SM80_TARGET = {"kind": "cuda", "arch": "sm_80"}
-DEFAULT_TARGET = tilelang.utils.determine_target(return_object=True)
+DEFAULT_TARGET = tilelang.backend.target.determine_target(return_object=True)
 
 M = 128  # number of threads / element-pairs
 
