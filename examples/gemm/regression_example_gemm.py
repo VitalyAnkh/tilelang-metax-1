@@ -14,9 +14,14 @@ _BENCH_GEMM_CONFIG = {
 
 _BENCH_GEMM_CASES = (
     {"name": "bench_gemm_m1664_n1024_k262144", "M": 1664, "N": 1024, "K": 262144},
+    {"name": "bench_gemm_m4096_n1024_k8192", "M": 4096, "N": 1024, "K": 8192},
     {"name": "bench_gemm_m4096_n8192_k8192", "M": 4096, "N": 8192, "K": 8192},
+    {"name": "bench_gemm_m4096_n28672_k8192", "M": 4096, "N": 28672, "K": 8192},
     {"name": "bench_gemm_m4096_n8192_k28672", "M": 4096, "N": 8192, "K": 28672},
     {"name": "bench_gemm_m8192_n1024_k8192", "M": 8192, "N": 1024, "K": 8192},
+    {"name": "bench_gemm_m8192_n8192_k8192", "M": 8192, "N": 8192, "K": 8192},
+    {"name": "bench_gemm_m8192_n28672_k8192", "M": 8192, "N": 28672, "K": 8192},
+    {"name": "bench_gemm_m8192_n8192_k28672", "M": 8192, "N": 8192, "K": 28672},
 )
 
 
@@ -84,8 +89,16 @@ def regression_bench_gemm_m1664_n1024_k262144():
     _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m1664_n1024_k262144"))
 
 
+def regression_bench_gemm_m4096_n1024_k8192():
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m4096_n1024_k8192"))
+
+
 def regression_bench_gemm_m4096_n8192_k8192():
     _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m4096_n8192_k8192"))
+
+
+def regression_bench_gemm_m4096_n28672_k8192():
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m4096_n28672_k8192"))
 
 
 def regression_bench_gemm_m4096_n8192_k28672():
@@ -94,6 +107,18 @@ def regression_bench_gemm_m4096_n8192_k28672():
 
 def regression_bench_gemm_m8192_n1024_k8192():
     _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m8192_n1024_k8192"))
+
+
+def regression_bench_gemm_m8192_n8192_k8192():
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m8192_n8192_k8192"))
+
+
+def regression_bench_gemm_m8192_n28672_k8192():
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m8192_n28672_k8192"))
+
+
+def regression_bench_gemm_m8192_n8192_k28672():
+    _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m8192_n8192_k28672"))
 
 
 def regression_example_gemm_intrinsics():
