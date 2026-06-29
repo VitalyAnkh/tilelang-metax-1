@@ -95,10 +95,7 @@ public:
   template <class... Args>
   static CUTE_DEVICE auto
   remove_swizzle(ComposedLayout<Args...> const &layout) {
-    if constexpr (sizeof(B_type) == 2) {
-      return layout.layout_b();
-    }
-    return layout;
+    return layout.layout_fn();
   }
 
   CUTE_DEVICE static void body(A_type_raw *pA, B_type_raw *pB, C_type_raw *pC) {
