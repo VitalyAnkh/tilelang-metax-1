@@ -1,6 +1,21 @@
 from pathlib import Path
 
 
+def test_maca_builtin_registration_preserves_ptx_bulk_shared_effect_attr():
+    repo_root = Path(__file__).resolve().parents[3]
+    builtin_source = repo_root / "src" / "op" / "builtin.cc"
+
+    source = builtin_source.read_text()
+    ptx_bulk_segment = source.split("TIR_DEFINE_TL_BUILTIN(ptx_st_bulk_shared)", 1)[1].split(
+        "TIR_DEFINE_TL_BUILTIN(maca_ldg_b128_bsm_predicator)",
+        1,
+    )[0]
+
+    assert ".set_num_inputs(3)" in ptx_bulk_segment
+    assert '.set_attr<TCallEffectKind>("TCallEffectKind",' in ptx_bulk_segment
+    assert "Integer(CallEffectKind::kOpaque)" in ptx_bulk_segment
+
+
 def test_maca_dense_template_normalizes_partitioned_fragments_before_gemm():
     repo_root = Path(__file__).resolve().parents[3]
     gemm_header = repo_root / "src" / "tl_templates" / "maca" / "gemm.h"

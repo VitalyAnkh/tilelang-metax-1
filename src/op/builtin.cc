@@ -317,6 +317,8 @@ TIR_DEFINE_TL_BUILTIN(ptx_cp_async)
 
 TIR_DEFINE_TL_BUILTIN(ptx_st_bulk_shared)
     .set_num_inputs(3)
+    .set_attr<TCallEffectKind>("TCallEffectKind",
+                               Integer(CallEffectKind::kOpaque));
 
 TIR_DEFINE_TL_BUILTIN(maca_ldg_b128_bsm_predicator)
     .set_num_inputs(10)
