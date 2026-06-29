@@ -3,7 +3,7 @@ import tilelang.language as T
 import tilelang.testing
 import pytest
 from tilelang import tvm
-from tilelang.utils.target import check_maca_availability
+from tilelang.maca.target import check_maca_availability
 
 
 requires_maca = pytest.mark.skipif(not check_maca_availability(), reason="Requires MACA")
