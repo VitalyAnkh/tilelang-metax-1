@@ -54,6 +54,8 @@ _BENCH_GEMM_MACA_BASELINE_CASE = {
     "K": 262144,
 }
 
+_MACA_GEMM_CHECK_SHAPE = (128, 128, 128)
+
 
 @contextmanager
 def _temporary_env(updates: dict[str, str | None]):
@@ -166,6 +168,18 @@ def _run_bench_gemm_maca_template(M, N, K, block_M, block_N, block_K, threads, n
         return profiler.do_bench(backend="cupti")
 
 
+def _check_bench_gemm_maca_pair() -> None:
+    M, N, K = _MACA_GEMM_CHECK_SHAPE
+    cases = (
+        (_MACA_BASELINE_ENV, _bench_gemm_matmul),
+        (_MACA_TEMPLATE_ENV, _bench_gemm_maca_template_matmul),
+    )
+    for env, factory in cases:
+        with _temporary_env(env):
+            kernel = factory(M, N, K, **_BENCH_GEMM_CONFIG)
+            kernel.get_profiler().assert_allclose(lambda a, b: a @ b, atol=1e-2, rtol=1e-2)
+
+
 def _process_bench_gemm_case(case):
     tilelang.testing.process_func(
         _run_bench_gemm,
@@ -269,7 +283,10 @@ if __name__ == "__main__":
             "maca-template-pair-long-k",
         ),
     )
+    parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    if args.check:
+        _check_bench_gemm_maca_pair()
     if args.case == "generic-long-k":
         tilelang.testing.regression(prefixes=("regression_bench_gemm_m1664_n1024_k262144",))
     elif args.case == "maca-baseline-long-k":

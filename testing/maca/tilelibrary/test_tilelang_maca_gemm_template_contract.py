@@ -138,6 +138,10 @@ def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
     assert "maca-template-pair-long-k" in source
     assert '"regression_bench_gemm_maca_baseline_m1664_n1024_k262144"' in source
     assert '"regression_bench_gemm_maca_template_m1664_n1024_k262144"' in source
+    assert "_MACA_GEMM_CHECK_SHAPE = (128, 128, 128)" in source
+    assert "def _check_bench_gemm_maca_pair() -> None:" in source
+    assert "kernel.get_profiler().assert_allclose(lambda a, b: a @ b, atol=1e-2, rtol=1e-2)" in source
+    assert 'parser.add_argument("--check", action="store_true")' in source
     assert source.count("T.copy(A[by * block_M, ko * block_K], A_shared)") >= 2
     assert source.count("T.copy(B[ko * block_K, bx * block_N], B_shared)") >= 2
     assert source.count("T.gemm(A_shared, B_shared, C_local)") >= 2
