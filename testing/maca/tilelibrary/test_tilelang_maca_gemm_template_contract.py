@@ -135,6 +135,9 @@ def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
     assert "with _temporary_env(_MACA_TEMPLATE_ENV):" in source
     assert "maca-baseline-long-k" in source
     assert "maca-template-long-k" in source
+    assert "maca-template-pair-long-k" in source
+    assert '"regression_bench_gemm_maca_baseline_m1664_n1024_k262144"' in source
+    assert '"regression_bench_gemm_maca_template_m1664_n1024_k262144"' in source
     assert source.count("T.copy(A[by * block_M, ko * block_K], A_shared)") >= 2
     assert source.count("T.copy(B[ko * block_K, bx * block_N], B_shared)") >= 2
     assert source.count("T.gemm(A_shared, B_shared, C_local)") >= 2

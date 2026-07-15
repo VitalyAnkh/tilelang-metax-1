@@ -266,6 +266,7 @@ if __name__ == "__main__":
             "generic-long-k",
             "maca-baseline-long-k",
             "maca-template-long-k",
+            "maca-template-pair-long-k",
         ),
     )
     args = parser.parse_args()
@@ -275,5 +276,12 @@ if __name__ == "__main__":
         tilelang.testing.regression(prefixes=("regression_bench_gemm_maca_baseline_m1664_n1024_k262144",))
     elif args.case == "maca-template-long-k":
         tilelang.testing.regression(prefixes=("regression_bench_gemm_maca_template_m1664_n1024_k262144",))
+    elif args.case == "maca-template-pair-long-k":
+        tilelang.testing.regression(
+            prefixes=(
+                "regression_bench_gemm_maca_baseline_m1664_n1024_k262144",
+                "regression_bench_gemm_maca_template_m1664_n1024_k262144",
+            )
+        )
     else:
         tilelang.testing.regression()
