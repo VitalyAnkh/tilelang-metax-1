@@ -111,3 +111,36 @@ def test_maca_wsm_lowering_falls_back_for_unsupported_contracts():
     assert "k_pack == 8" in source
     assert "a_source_stride % 8 == 0" in source
     assert 'consumer_surface = "direct_tl_gemm_ss"' in source
+
+
+def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
+    repo_root = Path(__file__).resolve().parents[3]
+    regression = repo_root / "examples" / "gemm" / "regression_example_gemm.py"
+
+    source = regression.read_text()
+
+    assert "bench_gemm_maca_template_m1664_n1024_k262144" in source
+    assert '"M": 1664' in source
+    assert '"N": 1024' in source
+    assert '"K": 262144' in source
+    assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": "1"' in source
+    assert '"TILELANG_MACA_GEMM_K_PACK": "1"' in source
+    assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": None' in source
+    assert '"TILELANG_MACA_GEMM_K_PACK": None' in source
+    assert "def _bench_gemm_maca_template_matmul" in source
+    assert "with _temporary_env(_MACA_BASELINE_ENV):" in source
+    assert "def _run_bench_gemm_maca_template" in source
+    assert "with _temporary_env(_MACA_TEMPLATE_ENV):" in source
+    assert source.count("T.copy(A[by * block_M, ko * block_K], A_shared)") >= 2
+    assert source.count("T.copy(B[ko * block_K, bx * block_N], B_shared)") >= 2
+    assert source.count("T.gemm(A_shared, B_shared, C_local)") >= 2
+    assert source.count("T.copy(C_local, C[by * block_M, bx * block_N])") >= 2
+
+
+def test_maca_gemm_layout_entrypoint_uses_the_tirx_buffer_type():
+    repo_root = Path(__file__).resolve().parents[3]
+    layout_header = repo_root / "src" / "layout" / "layout.h"
+
+    source = layout_header.read_text()
+
+    assert "Layout makeMacaGemmABLayout(const tirx::Buffer &buffer, int kfactor);" in source

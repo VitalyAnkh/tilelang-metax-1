@@ -1,3 +1,7 @@
+import argparse
+import os
+from contextlib import contextmanager
+
 import tilelang
 import tilelang.language as T
 import tilelang.testing
@@ -12,6 +16,16 @@ _BENCH_GEMM_CONFIG = {
     "num_stages": 0,
 }
 
+_MACA_TEMPLATE_ENV = {
+    "TILELANG_MACA_GEMM_USE_TEMPLATE": "1",
+    "TILELANG_MACA_GEMM_K_PACK": "1",
+}
+
+_MACA_BASELINE_ENV = {
+    "TILELANG_MACA_GEMM_USE_TEMPLATE": None,
+    "TILELANG_MACA_GEMM_K_PACK": None,
+}
+
 _BENCH_GEMM_CASES = (
     {"name": "bench_gemm_m1664_n1024_k262144", "M": 1664, "N": 1024, "K": 262144},
     {"name": "bench_gemm_m4096_n1024_k8192", "M": 4096, "N": 1024, "K": 8192},
@@ -23,6 +37,31 @@ _BENCH_GEMM_CASES = (
     {"name": "bench_gemm_m8192_n28672_k8192", "M": 8192, "N": 28672, "K": 8192},
     {"name": "bench_gemm_m8192_n8192_k28672", "M": 8192, "N": 8192, "K": 28672},
 )
+
+_BENCH_GEMM_MACA_TEMPLATE_CASE = {
+    "name": "bench_gemm_maca_template_m1664_n1024_k262144",
+    "M": 1664,
+    "N": 1024,
+    "K": 262144,
+}
+
+
+@contextmanager
+def _temporary_env(updates: dict[str, str | None]):
+    old_values = {key: os.environ.get(key) for key in updates}
+    for key, value in updates.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+    try:
+        yield
+    finally:
+        for key, old_value in old_values.items():
+            if old_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old_value
 
 
 @tilelang.jit(out_idx=[-1])
@@ -61,15 +100,70 @@ def _bench_gemm_matmul(
     return gemm
 
 
+@tilelang.jit(out_idx=[-1])
+def _bench_gemm_maca_template_matmul(
+    M,
+    N,
+    K,
+    block_M,
+    block_N,
+    block_K,
+    threads,
+    num_stages,
+    dtype=T.float16,
+    accum_dtype=T.float32,
+):
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((M, K), dtype),
+        B: T.Tensor((K, N), dtype),
+        C: T.Tensor((M, N), dtype),
+    ):
+        with T.Kernel(T.ceildiv(N, block_N), T.ceildiv(M, block_M), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((block_M, block_K), dtype)
+            B_shared = T.alloc_shared((block_K, block_N), dtype)
+            C_local = T.alloc_fragment((block_M, block_N), accum_dtype)
+
+            T.use_swizzle(panel_size=10)
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, block_K), num_stages=num_stages):
+                T.copy(A[by * block_M, ko * block_K], A_shared)
+                T.copy(B[ko * block_K, bx * block_N], B_shared)
+                T.gemm(A_shared, B_shared, C_local)
+
+            T.copy(C_local, C[by * block_M, bx * block_N])
+
+    return gemm
+
+
 def _run_bench_gemm(M, N, K, block_M, block_N, block_K, threads, num_stages):
-    kernel = _bench_gemm_matmul(M, N, K, block_M, block_N, block_K, threads, num_stages)
-    profiler = kernel.get_profiler()
-    return profiler.do_bench(backend="cupti")
+    with _temporary_env(_MACA_BASELINE_ENV):
+        kernel = _bench_gemm_matmul(M, N, K, block_M, block_N, block_K, threads, num_stages)
+        profiler = kernel.get_profiler()
+        return profiler.do_bench(backend="cupti")
+
+
+def _run_bench_gemm_maca_template(M, N, K, block_M, block_N, block_K, threads, num_stages):
+    with _temporary_env(_MACA_TEMPLATE_ENV):
+        kernel = _bench_gemm_maca_template_matmul(M, N, K, block_M, block_N, block_K, threads, num_stages)
+        profiler = kernel.get_profiler()
+        return profiler.do_bench(backend="cupti")
 
 
 def _process_bench_gemm_case(case):
     tilelang.testing.process_func(
         _run_bench_gemm,
+        case["name"],
+        M=case["M"],
+        N=case["N"],
+        K=case["K"],
+        **_BENCH_GEMM_CONFIG,
+    )
+
+
+def _process_bench_gemm_maca_template_case(case):
+    tilelang.testing.process_func(
+        _run_bench_gemm_maca_template,
         case["name"],
         M=case["M"],
         N=case["N"],
@@ -87,6 +181,10 @@ def _get_bench_gemm_case(name):
 
 def regression_bench_gemm_m1664_n1024_k262144():
     _process_bench_gemm_case(_get_bench_gemm_case("bench_gemm_m1664_n1024_k262144"))
+
+
+def regression_bench_gemm_maca_template_m1664_n1024_k262144():
+    _process_bench_gemm_maca_template_case(_BENCH_GEMM_MACA_TEMPLATE_CASE)
 
 
 def regression_bench_gemm_m4096_n1024_k8192():
@@ -130,4 +228,18 @@ def regression_example_gemm():
 
 
 if __name__ == "__main__":
-    tilelang.testing.regression()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--case",
+        choices=(
+            "generic-long-k",
+            "maca-template-long-k",
+        ),
+    )
+    args = parser.parse_args()
+    if args.case == "generic-long-k":
+        tilelang.testing.regression(prefixes=("regression_bench_gemm_m1664_n1024_k262144",))
+    elif args.case == "maca-template-long-k":
+        tilelang.testing.regression(prefixes=("regression_bench_gemm_maca_template_m1664_n1024_k262144",))
+    else:
+        tilelang.testing.regression()
