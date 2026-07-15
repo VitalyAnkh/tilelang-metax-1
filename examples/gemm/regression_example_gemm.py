@@ -19,11 +19,13 @@ _BENCH_GEMM_CONFIG = {
 _MACA_TEMPLATE_ENV = {
     "TILELANG_MACA_GEMM_USE_TEMPLATE": "1",
     "TILELANG_MACA_GEMM_K_PACK": "1",
+    "TILELANG_MACA_GEMM_CONSUMER_SURFACE": None,
 }
 
 _MACA_BASELINE_ENV = {
     "TILELANG_MACA_GEMM_USE_TEMPLATE": None,
     "TILELANG_MACA_GEMM_K_PACK": None,
+    "TILELANG_MACA_GEMM_CONSUMER_SURFACE": None,
 }
 
 _BENCH_GEMM_CASES = (
@@ -40,6 +42,13 @@ _BENCH_GEMM_CASES = (
 
 _BENCH_GEMM_MACA_TEMPLATE_CASE = {
     "name": "bench_gemm_maca_template_m1664_n1024_k262144",
+    "M": 1664,
+    "N": 1024,
+    "K": 262144,
+}
+
+_BENCH_GEMM_MACA_BASELINE_CASE = {
+    "name": "bench_gemm_maca_baseline_m1664_n1024_k262144",
     "M": 1664,
     "N": 1024,
     "K": 262144,
@@ -143,6 +152,13 @@ def _run_bench_gemm(M, N, K, block_M, block_N, block_K, threads, num_stages):
         return profiler.do_bench(backend="cupti")
 
 
+def _run_bench_gemm_maca_baseline(M, N, K, block_M, block_N, block_K, threads, num_stages):
+    with _temporary_env(_MACA_BASELINE_ENV):
+        kernel = _bench_gemm_matmul(M, N, K, block_M, block_N, block_K, threads, num_stages)
+        profiler = kernel.get_profiler()
+        return profiler.do_bench(backend="cupti")
+
+
 def _run_bench_gemm_maca_template(M, N, K, block_M, block_N, block_K, threads, num_stages):
     with _temporary_env(_MACA_TEMPLATE_ENV):
         kernel = _bench_gemm_maca_template_matmul(M, N, K, block_M, block_N, block_K, threads, num_stages)
@@ -172,6 +188,17 @@ def _process_bench_gemm_maca_template_case(case):
     )
 
 
+def _process_bench_gemm_maca_baseline_case(case):
+    tilelang.testing.process_func(
+        _run_bench_gemm_maca_baseline,
+        case["name"],
+        M=case["M"],
+        N=case["N"],
+        K=case["K"],
+        **_BENCH_GEMM_CONFIG,
+    )
+
+
 def _get_bench_gemm_case(name):
     for case in _BENCH_GEMM_CASES:
         if case["name"] == name:
@@ -185,6 +212,10 @@ def regression_bench_gemm_m1664_n1024_k262144():
 
 def regression_bench_gemm_maca_template_m1664_n1024_k262144():
     _process_bench_gemm_maca_template_case(_BENCH_GEMM_MACA_TEMPLATE_CASE)
+
+
+def regression_bench_gemm_maca_baseline_m1664_n1024_k262144():
+    _process_bench_gemm_maca_baseline_case(_BENCH_GEMM_MACA_BASELINE_CASE)
 
 
 def regression_bench_gemm_m4096_n1024_k8192():
@@ -233,12 +264,15 @@ if __name__ == "__main__":
         "--case",
         choices=(
             "generic-long-k",
+            "maca-baseline-long-k",
             "maca-template-long-k",
         ),
     )
     args = parser.parse_args()
     if args.case == "generic-long-k":
         tilelang.testing.regression(prefixes=("regression_bench_gemm_m1664_n1024_k262144",))
+    elif args.case == "maca-baseline-long-k":
+        tilelang.testing.regression(prefixes=("regression_bench_gemm_maca_baseline_m1664_n1024_k262144",))
     elif args.case == "maca-template-long-k":
         tilelang.testing.regression(prefixes=("regression_bench_gemm_maca_template_m1664_n1024_k262144",))
     else:
