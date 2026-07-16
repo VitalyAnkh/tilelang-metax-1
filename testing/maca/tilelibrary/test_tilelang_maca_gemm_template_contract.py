@@ -48,7 +48,7 @@ def test_maca_dense_template_uses_maca_cute_composed_layout_accessor():
     assert "return layout;" not in composed_overload
 
 
-def test_maca_dense_template_uses_matching_linear_shared_layouts():
+def test_maca_dense_template_uses_transpose_aware_shared_layouts():
     repo_root = Path(__file__).resolve().parents[3]
     gemm_header = repo_root / "src" / "tl_templates" / "maca" / "gemm.h"
     gemm_mma = repo_root / "tilelang" / "maca" / "op" / "gemm" / "gemm_mma.py"
@@ -56,14 +56,18 @@ def test_maca_dense_template_uses_matching_linear_shared_layouts():
     header_source = gemm_header.read_text()
     lowering_source = gemm_mma.read_text()
 
-    assert "using SmemLayoutA = Layout<Shape<Int<M>, Int<K>>, Stride<Int<K>, _1>>;" in header_source
-    assert "using SmemLayoutB = Layout<Shape<Int<N>, Int<K>>, Stride<_1, Int<N>>>;" in header_source
+    assert "using LinearSmemLayoutA = Layout<Shape<Int<M>, Int<K>>, Stride<Int<K>, _1>>;" in header_source
+    assert "using LinearSmemLayoutB = Layout<Shape<Int<N>, Int<K>>, Stride<_1, Int<N>>>;" in header_source
+    assert "typename std::conditional<trans_B, typename OperandATraits::Layout," in header_source
+    assert "typename std::conditional<trans_B, typename OperandBTraits::Layout," in header_source
     template_section = lowering_source.split("if use_template and self.is_gemm_ss():", 1)[1].split("else:\n            shared_layout_a", 1)[
         0
     ]
+    assert "if self.trans_B:" in template_section
+    assert "make_maca_gemm_ab_layout(buf, 1 if self.trans_A else 2)" in template_section
+    assert "make_maca_gemm_ab_layout(buf, 2)" in template_section
     assert "shared_layout_a = make_linear_layout" in template_section
     assert "shared_layout_b = make_linear_layout" in template_section
-    assert "make_maca_gemm_ab_layout" not in template_section
 
 
 def test_maca_dense_template_remains_opt_in_by_default():
