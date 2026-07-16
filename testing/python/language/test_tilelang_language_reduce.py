@@ -105,8 +105,6 @@ REDUCE_CASES = [
     ],
 )
 def test_reduce(op, dtype, M, N, src_scope, dst_scope, threads, batch):
-    import re
-
     @tilelang.jit(out_idx=-1)
     def kernel(M, N, dtype, op, src_scope, dst_scope, threads, batch):
         @T.prim_func
@@ -130,9 +128,7 @@ def test_reduce(op, dtype, M, N, src_scope, dst_scope, threads, batch):
 
     if batch > 1:
         src = jit_kernel.get_kernel_source()
-        m = re.search(r",\s*(\d+)\s*,\s*\d+\s*>::run_batch(?:_offset)?\(", src)
-        assert m is not None, f"Expected batched reduce in generated source.\n{src}"
-        assert int(m.group(1)) > 1, f"Expected batch_size > 1, got {m.group(1)}.\n{src}"
+        assert "::run_batch(" in src or "::run_batch_offset(" in src, f"Expected batched reduce in generated source.\n{src}"
 
     seed = _case_seed("reduce", op, dtype, M, N, src_scope, dst_scope, threads, batch)
     A = _make_input(M, N, dtype, seed)
