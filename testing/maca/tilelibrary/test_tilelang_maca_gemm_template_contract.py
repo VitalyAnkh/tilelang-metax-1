@@ -144,6 +144,7 @@ def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
     assert '"K": 262144' in source
     assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": "1"' in source
     assert '"TILELANG_MACA_GEMM_K_PACK": "1"' in source
+    assert source.count('"TILELANG_DEFAULT_TARGET": "maca"') == 2
     assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": None' in source
     assert '"TILELANG_MACA_GEMM_K_PACK": None' in source
     assert "def _bench_gemm_maca_template_matmul" in source
