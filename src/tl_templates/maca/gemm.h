@@ -80,10 +80,12 @@ public:
 
   using LinearSmemLayoutA = Layout<Shape<Int<M>, Int<K>>, Stride<Int<K>, _1>>;
   using LinearSmemLayoutB = Layout<Shape<Int<N>, Int<K>>, Stride<_1, Int<N>>>;
-  using SmemLayoutA = typename std::conditional<trans_B, typename OperandATraits::Layout,
-                                                 LinearSmemLayoutA>::type;
-  using SmemLayoutB = typename std::conditional<trans_B, typename OperandBTraits::Layout,
-                                                 LinearSmemLayoutB>::type;
+  using SmemLayoutA =
+      typename std::conditional<trans_B, typename OperandATraits::Layout,
+                                LinearSmemLayoutA>::type;
+  using SmemLayoutB =
+      typename std::conditional<trans_B, typename OperandBTraits::Layout,
+                                LinearSmemLayoutB>::type;
   using SmemCopyA = Copy_Atom<typename OperandATraits::Copy, A_type>;
   using SmemCopyB = Copy_Atom<typename OperandBTraits::Copy, B_type>;
 

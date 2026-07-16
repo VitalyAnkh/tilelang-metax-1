@@ -602,11 +602,10 @@ template <typename Impl> struct ReduceLowerer {
                   .value();
           std::string allreduce =
               can_batch_pack
-                  ? Impl::MakeBatchAllReduce(reducer, reducing_threads, *scale,
-                                             thread_offset,
-                                             lower_args.thread_bounds->extent,
-                                             eff_batch, reducing_threads,
-                                             lower_args.target)
+                  ? Impl::MakeBatchAllReduce(
+                        reducer, reducing_threads, *scale, thread_offset,
+                        lower_args.thread_bounds->extent, eff_batch,
+                        reducing_threads, lower_args.target)
                   : Impl::MakeBatchAllReduceOffset(
                         reducer, reducing_threads, *scale, thread_offset,
                         lower_args.thread_bounds->extent, batch,

@@ -148,7 +148,7 @@ def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
     assert '"K": 262144' in source
     assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": "1"' in source
     assert '"TILELANG_MACA_GEMM_K_PACK": "1"' in source
-    assert source.count('"TILELANG_DEFAULT_TARGET": "maca"') == 2
+    assert source.count('"TILELANG_DEFAULT_TARGET": "maca"') == 3
     assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": None' in source
     assert '"TILELANG_MACA_GEMM_K_PACK": None' in source
     assert "def _bench_gemm_maca_template_matmul" in source
@@ -169,6 +169,36 @@ def test_maca_template_long_k_regression_remains_on_generic_gemm_surface():
     assert source.count("T.copy(B[ko * block_K, bx * block_N], B_shared)") >= 2
     assert source.count("T.gemm(A_shared, B_shared, C_local)") >= 2
     assert source.count("T.copy(C_local, C[by * block_M, bx * block_N])") >= 2
+
+
+def test_maca_kpack2_long_k_regression_uses_non_template_lowering():
+    repo_root = Path(__file__).resolve().parents[3]
+    regression = repo_root / "examples" / "gemm" / "regression_example_gemm.py"
+    gemm_mma = repo_root / "tilelang" / "maca" / "op" / "gemm" / "gemm_mma.py"
+
+    regression_source = regression.read_text()
+    lowering_source = gemm_mma.read_text()
+
+    assert "bench_gemm_maca_kpack2_m1664_n1024_k262144" in regression_source
+    assert '"TILELANG_MACA_GEMM_USE_TEMPLATE": None' in regression_source
+    assert '"TILELANG_MACA_GEMM_K_PACK": "2"' in regression_source
+    assert "maca-kpack2-long-k" in regression_source
+    assert "maca-kpack2-pair-long-k" in regression_source
+    assert "def _bench_gemm_maca_kpack2_matmul" in regression_source
+    assert "def _run_bench_gemm_maca_kpack2" in regression_source
+    assert "with _temporary_env(_MACA_KPACK2_ENV):" in regression_source
+    assert "def _check_bench_gemm_maca_kpack2_pair() -> None:" in regression_source
+    assert "(_MACA_KPACK2_ENV, _bench_gemm_maca_kpack2_matmul)" in regression_source
+    assert regression_source.count("T.copy(A[by * block_M, ko * block_K], A_shared)") >= 3
+    assert regression_source.count("T.copy(B[ko * block_K, bx * block_N], B_shared)") >= 3
+    assert regression_source.count("T.gemm(A_shared, B_shared, C_local)") >= 3
+    assert regression_source.count("T.copy(C_local, C[by * block_M, bx * block_N])") >= 3
+    assert "def _get_maca_gemm_k_pack(default: int = 1) -> int:" in lowering_source
+    assert 'os.environ.get("TILELANG_MACA_GEMM_K_PACK")' in lowering_source
+    assert "k_pack = _get_maca_gemm_k_pack(self.k_pack)" in lowering_source
+    assert "macro_size_k = micro_size_k * k_pack" in lowering_source
+    assert "A_local = T.alloc_local((warp_rows * local_size_a * k_pack), a_dtype)" in lowering_source
+    assert "B_local = T.alloc_local((warp_cols * local_size_b * k_pack), b_dtype)" in lowering_source
 
 
 def test_maca_gemm_layout_entrypoint_uses_the_tirx_buffer_type():
