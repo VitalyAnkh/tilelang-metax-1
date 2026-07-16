@@ -7,7 +7,6 @@ from tilelang.layout import (
     make_half_bank_swizzled_layout,
     make_quarter_bank_swizzled_layout,
     make_linear_layout,
-    make_maca_gemm_ab_layout,
     make_maca_gemm_fragment_c,
     make_swizzled_layout,
 )
@@ -183,12 +182,8 @@ class GemmMMA(GemmBase):
             k_pack=k_pack,
         )
         if use_template and self.is_gemm_ss():
-
-            def shared_layout_a(buf):
-                return make_maca_gemm_ab_layout(buf, 1 if self.trans_A else 2)
-
-            def shared_layout_b(buf):
-                return make_maca_gemm_ab_layout(buf, 2 if self.trans_B else 1)
+            shared_layout_a = make_linear_layout
+            shared_layout_b = make_linear_layout
 
             c_layout = make_maca_gemm_fragment_c(
                 int(self.M),

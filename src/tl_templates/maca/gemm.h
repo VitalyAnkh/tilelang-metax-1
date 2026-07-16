@@ -78,8 +78,8 @@ public:
   using OperandBTraits =
       OperandTraits<sizeof_bits<B_type>::value, N, K, trans_B, num_warp_n>;
 
-  using SmemLayoutA = typename OperandATraits::Layout;
-  using SmemLayoutB = typename OperandBTraits::Layout;
+  using SmemLayoutA = Layout<Shape<Int<M>, Int<K>>, Stride<Int<K>, _1>>;
+  using SmemLayoutB = Layout<Shape<Int<N>, Int<K>>, Stride<_1, Int<N>>>;
   using SmemCopyA = Copy_Atom<typename OperandATraits::Copy, A_type>;
   using SmemCopyB = Copy_Atom<typename OperandBTraits::Copy, B_type>;
 
