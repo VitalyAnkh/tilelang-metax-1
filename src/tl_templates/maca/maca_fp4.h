@@ -147,6 +147,27 @@ struct __MACA_ALIGN__(32) fp4_e2_64_t {
   fp4_e2_32_t y;
 };
 
+namespace tl {
+// Build a nibble-packed fp4 vector from one fp4_e2_t per lane. One variadic
+// definition covers every lane count (2/4/.../64) instead of a
+// make_fp4_e2_<N>_t constructor ladder.
+template <typename V, typename... Ts> TL_DEVICE V make_fp4_vec(Ts... lanes) {
+  constexpr int kN = static_cast<int>(sizeof...(lanes));
+  static_assert(kN % 2 == 0, "fp4 vectors pack two lanes per byte");
+  static_assert(sizeof(V) * 2 == kN,
+                "tl::make_fp4_vec lane count does not match the vector size");
+  const fp4_e2_t vals[] = {lanes...};
+  V result;
+  uint8_t *bytes = reinterpret_cast<uint8_t *>(&result);
+#pragma unroll
+  for (int i = 0; i < kN / 2; ++i) {
+    bytes[i] = static_cast<uint8_t>((vals[2 * i].__x & 0x0F) |
+                                    ((vals[2 * i + 1].__x & 0x0F) << 4));
+  }
+  return result;
+}
+} // namespace tl
+
 TL_DEVICE fp4_e2_2_t make_fp4_e2_2_t(fp4_e2_t x, fp4_e2_t y) {
   return fp4_e2_2_t((x.__x & 0x0FU) | ((y.__x & 0x0FU) << 4U));
 }

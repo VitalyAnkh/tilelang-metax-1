@@ -18,7 +18,7 @@ from tilelang.contrib.mxcc import have_pdl
 
 def MACAPassPipelineBodyPrologue(mod: IRModule, target: Target) -> IRModule:
     mod = tirx.transform.BindTarget(target)(mod)
-    mod = tilelang.transform.MaterializeKernelLaunch()(mod)
+    mod = tilelang.transform.MaterializeKernelLaunch(lower_thread_binding=True, default_threads=128)(mod)
     if should_force_let_inline():
         # Force-let inline whenever the pass config requests it.
         mod = tilelang.transform.LetInline()(mod)

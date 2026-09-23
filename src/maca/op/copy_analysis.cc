@@ -169,26 +169,36 @@ CopyInstSelection SelectCopyInstForLowering(const CopyNode &op,
   return Supported(CopyInst::kNormal);
 }
 
-std::string ClassifyCopyForInstructionAnnotation(const CopyNode &op,
-                                                 Target target,
-                                                 bool in_pipeline) {
+CopyInstSelection ClassifyWarpSpecializedCopy(const CopyNode &op,
+                                              Target target) {
   CopyAnalysisContext ctx;
   ctx.target = target;
+
+  if (IsSharedBuffer(op.src) && IsGlobalBuffer(op.dst)) {
+    return SelectCopyInstForLowering(op, ctx);
+  }
+
   CopyFacts facts = AnalyzeCopyFacts(op, ctx);
   if (!facts.maca_like_target) {
-    return "sync";
+    return Supported(CopyInst::kNormal);
   }
 
   if (facts.explicit_memcpy_async) {
-    return facts.can_memcpy_async ? "memcpy_async" : "sync";
+    return facts.can_memcpy_async ? Supported(CopyInst::kMemcpyAsync)
+                                  : Unsupported(facts.async_unavailable_reason);
   }
 
-  if (in_pipeline && IsAutoAsyncCopyEnabled(/*default_enabled=*/false) &&
-      facts.can_memcpy_async) {
-    return "memcpy_async";
+  if (!IsAutoAsyncCopyEnabled(/*default_enabled=*/true)) {
+    return Unsupported("T.copy prefer_instruction=\"cp_async\" conflicts with "
+                       "pass config tl.enable_async_copy=false.");
   }
+  return facts.can_memcpy_async
+             ? Supported(CopyInst::kMemcpyAsync)
+             : Unsupported("T.copy prefer_instruction="
+                           "\"cp_async\" could not be honored: " +
+                           facts.async_unavailable_reason);
 
-  return "sync";
+  return Supported(CopyInst::kNormal);
 }
 
 bool IsPipelineManagedMemcpyAsyncCopy(const CopyNode &op, Target target) {

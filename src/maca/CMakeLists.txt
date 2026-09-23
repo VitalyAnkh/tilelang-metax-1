@@ -24,6 +24,7 @@ file(GLOB TILE_LANG_MACA_SRCS
   src/cuda/transform/*.cc
   src/maca/transform/*.cc
   src/maca/runtime/maca_runtime.cc
+  src/cuda/transform/auto_schedule/*.cc
 )
 list(APPEND TILE_LANG_SRCS ${TILE_LANG_MACA_SRCS})
 

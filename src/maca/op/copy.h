@@ -46,9 +46,8 @@ CopyInstSelection SelectCopyInstForLowering(const CopyNode &op,
                                             const CopyAnalysisContext &ctx);
 
 // Coarse pre-layout classification used by InstructionAnnotation.
-std::string ClassifyCopyForInstructionAnnotation(const CopyNode &op,
-                                                 Target target,
-                                                 bool in_pipeline);
+CopyInstSelection ClassifyWarpSpecializedCopy(const CopyNode &op,
+                                              Target target);
 
 // Semantic queries used by transform passes that need copy shape/capability
 // information without knowing the MACA lowering policy knobs.
