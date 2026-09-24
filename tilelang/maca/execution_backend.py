@@ -32,7 +32,13 @@ def _is_cutedsl_available() -> bool:
 
 
 MACA_EXECUTION_BACKENDS = [
-    ExecutionBackendSpec("tvm_ffi", supports_target=_is_plain_maca_target, enable_host_codegen=True, enable_device_compile=True),
+    ExecutionBackendSpec(
+        "tvm_ffi",
+        supports_target=_is_plain_maca_target,
+        enable_host_codegen=True,
+        enable_device_compile=True,
+        supports_callee_allocated_outputs=True,
+    ),
     ExecutionBackendSpec("mcrtc", is_available=_is_mcrtc_available, supports_target=_is_plain_maca_target),
     ExecutionBackendSpec("cython", supports_target=_is_plain_maca_target),
     ExecutionBackendSpec("cutedsl", is_available=_is_cutedsl_available, supports_target=_is_cutedsl_target),

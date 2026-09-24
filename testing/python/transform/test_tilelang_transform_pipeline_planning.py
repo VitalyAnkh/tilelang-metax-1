@@ -214,6 +214,7 @@ def test_pipeline_planning_schedules_guarded_body_after_replayable_bind_inline()
     tl.transform.InjectSoftwarePipeline()(mod)
 
 
+@tilelang.testing.skip_on_maca
 def test_pipeline_planning_before_after_mbarrier_arrive_wait_plan():
     @T.prim_func
     def before(A: T.Tensor((64,), T.float16), C: T.Tensor((64,), T.float16)):

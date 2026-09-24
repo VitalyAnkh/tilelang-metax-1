@@ -677,6 +677,70 @@ TL_PATCH TL_DEVICE bfloat16_t htan(const bfloat16_t x) {
   return bfloat16_t(tanf(float(x)));
 }
 
+// MACA does not provide all half-precision math intrinsics used by TileLang.
+// Evaluate the missing 16-bit operations in float32 and convert the result
+// back to the source type, matching the CUDA template fallbacks.
+TL_PATCH TL_DEVICE half_t hsinh(const half_t x) {
+  return half_t(sinhf(float(x)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hsinh(const bfloat16_t x) {
+  return bfloat16_t(sinhf(float(x)));
+}
+
+TL_PATCH TL_DEVICE half_t hcosh(const half_t x) {
+  return half_t(coshf(float(x)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hcosh(const bfloat16_t x) {
+  return bfloat16_t(coshf(float(x)));
+}
+
+// The MACA SDK provides htanh for bfloat16, but not for half.
+TL_PATCH TL_DEVICE half_t htanh(const half_t x) {
+  return half_t(tanhf(float(x)));
+}
+
+TL_PATCH TL_DEVICE half_t hatan(const half_t x) {
+  return half_t(atanf(float(x)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hatan(const bfloat16_t x) {
+  return bfloat16_t(atanf(float(x)));
+}
+
+TL_PATCH TL_DEVICE half_t herf(const half_t x) {
+  return half_t(erff(float(x)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t herf(const bfloat16_t x) {
+  return bfloat16_t(erff(float(x)));
+}
+
+TL_PATCH TL_DEVICE half_t hnearbyint(const half_t x) {
+  return half_t(nearbyintf(float(x)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hnearbyint(const bfloat16_t x) {
+  return bfloat16_t(nearbyintf(float(x)));
+}
+
+TL_PATCH TL_DEVICE half_t hpow(const half_t x, const half_t y) {
+  return half_t(powf(float(x), float(y)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hpow(const bfloat16_t x, const bfloat16_t y) {
+  return bfloat16_t(powf(float(x), float(y)));
+}
+
+TL_PATCH TL_DEVICE half_t hfmod(const half_t x, const half_t y) {
+  return half_t(fmodf(float(x), float(y)));
+}
+
+TL_PATCH TL_DEVICE bfloat16_t hfmod(const bfloat16_t x, const bfloat16_t y) {
+  return bfloat16_t(fmodf(float(x), float(y)));
+}
+
 // Pack two half_t values.
 TL_DEVICE unsigned __pack_half2(const half_t x, const half_t y) {
   unsigned v0 = *((unsigned short *)&x);
@@ -694,6 +758,42 @@ TL_DEVICE unsigned __pack_maca_bfloat162(const bfloat16_t x,
 
 namespace tl {
 TL_DEVICE float fast_rcp(float x) { return __fdividef(1.0f, x); }
+
+// Replicate a small repeating unit across a wider vector type, e.g. one
+// packed fp4x2 byte across fp4_e2_64_t. Works for any (V, U) with
+// sizeof(V) % sizeof(U) == 0, so codegen does not need a make_<type>
+// constructor for every lane count.
+template <typename V, typename U> TL_DEVICE V broadcast(const U unit) {
+  static_assert(sizeof(V) % sizeof(U) == 0,
+                "tl::broadcast requires the vector size to be a multiple of "
+                "the unit size");
+  V result;
+  U *parts = reinterpret_cast<U *>(&result);
+#pragma unroll
+  for (int i = 0; i < static_cast<int>(sizeof(V) / sizeof(U)); ++i) {
+    parts[i] = unit;
+  }
+  return result;
+}
+
+// Build a vector struct from its scalar elements, one per lane (byte-sized
+// or larger; fp4 uses tl::make_fp4_vec). The element type is deduced from
+// the first argument; one variadic definition replaces a make_<type>
+// constructor per lane count.
+template <typename V, typename E, typename... Ts>
+TL_DEVICE V make_vec(const E first, const Ts... rest) {
+  constexpr int kN = 1 + static_cast<int>(sizeof...(rest));
+  static_assert(sizeof(V) == kN * sizeof(E),
+                "tl::make_vec element count does not match the vector size");
+  const E vals[] = {first, static_cast<E>(rest)...};
+  V result;
+  E *parts = reinterpret_cast<E *>(&result);
+#pragma unroll
+  for (int i = 0; i < kN; ++i) {
+    parts[i] = vals[i];
+  }
+  return result;
+}
 } // namespace tl
 
 template <typename T1, typename T2>
